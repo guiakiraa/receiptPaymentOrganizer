@@ -1,6 +1,6 @@
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
-from google.oauth2 import service_account
+import google.auth
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -34,11 +34,7 @@ def _save_token_to_secret_manager(creds):
 
 
 def _get_service_account_service():
-    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "service-account.json")
-    credentials = service_account.Credentials.from_service_account_file(
-        cred_path,
-        scopes=SERVICE_ACCOUNT_SCOPES
-    )
+    credentials, _ = google.auth.default(scopes=SERVICE_ACCOUNT_SCOPES)
     return build("drive", "v3", credentials=credentials)
 
 
