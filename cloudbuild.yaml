@@ -1,5 +1,16 @@
 steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        echo $$OAUTH_CREDENTIALS > oauth-credentials.json
+        echo $$OAUTH_TOKEN > oauth-token.json
+    secretEnv:
+      - OAUTH_CREDENTIALS
+      - OAUTH_TOKEN
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     args:
       - gcloud
       - functions
@@ -7,7 +18,7 @@ steps:
       - smart-receipt-organizer
       - --gen2
       - --runtime=python311
-      - --region=southamerica-east1
+      - --region=us-east1
       - --source=.
       - --entry-point=run
       - --trigger-http
@@ -34,3 +45,7 @@ availableSecrets:
       env: GCS_BUCKET_NAME
     - versionName: projects/$PROJECT_ID/secrets/DRIVE_FOLDER_ID/versions/latest
       env: DRIVE_FOLDER_ID
+    - versionName: projects/$PROJECT_ID/secrets/OAUTH_CREDENTIALS/versions/latest
+      env: OAUTH_CREDENTIALS
+    - versionName: projects/$PROJECT_ID/secrets/OAUTH_TOKEN/versions/latest
+      env: OAUTH_TOKEN
