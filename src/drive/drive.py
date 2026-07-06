@@ -9,6 +9,7 @@ import os
 import json
 from src.logger import get_logger
 from dotenv import load_dotenv
+from google.cloud import secretmanager
 
 load_dotenv()
 
@@ -16,6 +17,20 @@ logger = get_logger(__name__)
 
 SERVICE_ACCOUNT_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 OAUTH_SCOPES = ["https://www.googleapis.com/auth/drive"]
+
+
+def _save_token_to_secret_manager(creds):
+    client = secretmanager.SecretManagerServiceClient()
+    project_id = os.getenv("GCP_PROJECT_ID")
+    secret_name = f"projects/{project_id}/secrets/OAUTH_TOKEN"
+
+    client.add_secret_version(
+        request={
+            "parent": secret_name,
+            "payload": {"data": creds.to_json().encode("utf-8")}
+        }
+    )
+    logger.info("Token OAuth atualizado no Secret Manager")
 
 
 def _get_service_account_service():
@@ -40,6 +55,7 @@ def _get_oauth_service():
         if creds and creds.expired and creds.refresh_token:
             logger.info("Renovando token OAuth...")
             creds.refresh(Request())
+            _save_token_to_secret_manager(creds)
         else:
             logger.info("Iniciando fluxo OAuth — abrirá o navegador...")
             flow = InstalledAppFlow.from_client_secrets_file(
