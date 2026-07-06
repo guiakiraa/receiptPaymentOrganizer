@@ -5,3 +5,5 @@ __pycache__/
 *.egg-info/
 .venv/
 service-account.json
+oauth-credentials.json
+oauth-token.json

@@ -1,8 +1,12 @@
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 import io
 import os
+import json
 from src.logger import get_logger
 from dotenv import load_dotenv
 
@@ -10,22 +14,54 @@ load_dotenv()
 
 logger = get_logger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/drive"]
+SERVICE_ACCOUNT_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+OAUTH_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
-def _get_drive_service():
+def _get_service_account_service():
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "service-account.json")
     credentials = service_account.Credentials.from_service_account_file(
         cred_path,
-        scopes=SCOPES
+        scopes=SERVICE_ACCOUNT_SCOPES
     )
     return build("drive", "v3", credentials=credentials)
 
 
+def _get_oauth_service():
+    token_file = os.getenv("OAUTH_TOKEN_FILE", "oauth-token.json")
+    credentials_file = os.getenv("OAUTH_CREDENTIALS_FILE", "oauth-credentials.json")
+
+    creds = None
+
+    if os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, OAUTH_SCOPES)
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            logger.info("Renovando token OAuth...")
+            creds.refresh(Request())
+        else:
+            logger.info("Iniciando fluxo OAuth — abrirá o navegador...")
+            flow = InstalledAppFlow.from_client_secrets_file(
+                credentials_file,
+                OAUTH_SCOPES
+            )
+            creds = flow.run_local_server(port=0)
+
+        with open(token_file, "w") as f:
+            f.write(creds.to_json())
+        logger.info("Token OAuth salvo com sucesso!")
+
+    return build("drive", "v3", credentials=creds)
+
+
 def get_filename(file_id: str) -> str:
     logger.info(f"Buscando nome do arquivo: {file_id}")
-    service = _get_drive_service()
-    file = service.files().get(fileId=file_id, fields="name").execute()
+    service = _get_service_account_service()
+    file = service.files().get(
+        fileId=file_id,
+        fields="name"
+    ).execute()
     filename = file.get("name")
     logger.info(f"Nome do arquivo: '{filename}'")
     return filename
@@ -33,7 +69,7 @@ def get_filename(file_id: str) -> str:
 
 def download_file(file_id: str) -> bytes:
     logger.info(f"Baixando arquivo do Drive: {file_id}")
-    service = _get_drive_service()
+    service = _get_service_account_service()
 
     request = service.files().get_media(fileId=file_id)
     buffer = io.BytesIO()
@@ -49,15 +85,15 @@ def download_file(file_id: str) -> bytes:
 
 
 def delete_file(file_id: str) -> None:
-    logger.info(f"Deletando arquivo do Drive: {file_id}")
-    service = _get_drive_service()
+    logger.info(f"Deletando arquivo do Drive via OAuth: {file_id}")
+    service = _get_oauth_service()
     service.files().delete(fileId=file_id).execute()
     logger.info("Arquivo deletado do Drive com sucesso!")
 
 
 def list_files_in_folder(folder_id: str) -> list[dict]:
     logger.info(f"Listando arquivos da pasta: {folder_id}")
-    service = _get_drive_service()
+    service = _get_service_account_service()
 
     query = (
         f"'{folder_id}' in parents "

@@ -3,3 +3,5 @@ openai==2.31.0
 google-cloud-storage==3.10.1
 google-api-python-client==2.194.0
 google-auth==2.49.2
+functions-framework==3.10.1
+google-auth-oauthlib 1.4.0
