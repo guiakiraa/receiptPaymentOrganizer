@@ -17,16 +17,13 @@ steps:
     args:
       - -c
       - |
-        gcloud functions deploy smart-receipt-organizer \
-          --gen2 \
-          --runtime=python311 \
-          --region=us-east1 \
+        gcloud run deploy smart-receipt-organizer \
           --source=. \
-          --entry-point=run \
-          --trigger-http \
+          --function=run \
+          --region=southamerica-east1 \
           --no-allow-unauthenticated \
           --set-env-vars=OPENAI_API_KEY=$$OPENAI_API_KEY,GCS_BUCKET_NAME=$$GCS_BUCKET_NAME,DRIVE_FOLDER_ID=$$DRIVE_FOLDER_ID,OAUTH_CREDENTIALS_FILE=oauth-credentials.json,OAUTH_TOKEN_FILE=oauth-token.json \
-          --memory=256Mi \
+          --memory=512Mi \
           --timeout=120s
     secretEnv:
       - OPENAI_API_KEY
