@@ -6,7 +6,6 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import io
 import os
-import json
 from src.logger import get_logger
 from dotenv import load_dotenv
 from google.cloud import secretmanager
@@ -20,8 +19,15 @@ OAUTH_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def _save_token_to_secret_manager(creds):
+    _, project_id = google.auth.default(scopes=SERVICE_ACCOUNT_SCOPES)
+
+    if not project_id:
+        raise RuntimeError(
+            "Não foi possível determinar o projeto do GCP a partir das "
+            "credenciais padrão (ADC)."
+        )
+
     client = secretmanager.SecretManagerServiceClient()
-    project_id = os.getenv("GCP_PROJECT_ID")
     secret_name = f"projects/{project_id}/secrets/OAUTH_TOKEN"
 
     client.add_secret_version(
@@ -52,6 +58,12 @@ def _get_oauth_service():
             logger.info("Renovando token OAuth...")
             creds.refresh(Request())
             _save_token_to_secret_manager(creds)
+        elif os.getenv("K_SERVICE"):
+            raise RuntimeError(
+                "Token OAuth ausente ou inválido e o fluxo interativo não pode "
+                "rodar no Cloud Run. Gere um token novo localmente e publique-o: "
+                "gcloud secrets versions add OAUTH_TOKEN --data-file=oauth-token.json"
+            )
         else:
             logger.info("Iniciando fluxo OAuth — abrirá o navegador...")
             flow = InstalledAppFlow.from_client_secrets_file(
@@ -65,18 +77,6 @@ def _get_oauth_service():
         logger.info("Token OAuth salvo com sucesso!")
 
     return build("drive", "v3", credentials=creds)
-
-
-def get_filename(file_id: str) -> str:
-    logger.info(f"Buscando nome do arquivo: {file_id}")
-    service = _get_service_account_service()
-    file = service.files().get(
-        fileId=file_id,
-        fields="name"
-    ).execute()
-    filename = file.get("name")
-    logger.info(f"Nome do arquivo: '{filename}'")
-    return filename
 
 
 def download_file(file_id: str) -> bytes:
@@ -113,11 +113,22 @@ def list_files_in_folder(folder_id: str) -> list[dict]:
         f"and trashed = false"
     )
 
-    results = service.files().list(
-        q=query,
-        fields="files(id, name, mimeType)"
-    ).execute()
+    files = []
+    page_token = None
 
-    files = results.get("files", [])
+    while True:
+        results = service.files().list(
+            q=query,
+            fields="nextPageToken, files(id, name, mimeType)",
+            pageSize=1000,
+            pageToken=page_token
+        ).execute()
+
+        files.extend(results.get("files", []))
+
+        page_token = results.get("nextPageToken")
+        if not page_token:
+            break
+
     logger.info(f"{len(files)} arquivo(s) encontrado(s) na pasta")
     return files
