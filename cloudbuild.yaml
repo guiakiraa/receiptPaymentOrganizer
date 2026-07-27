@@ -17,7 +17,7 @@ steps:
     args:
       - -c
       - |
-        gcloud beta run deploy smart-receipt-organizer \
+        gcloud beta run deploy comprovai \
           --quiet \
           --source=. \
           --function=run \
@@ -26,7 +26,7 @@ steps:
           --no-allow-unauthenticated \
           --set-env-vars=OPENAI_API_KEY=$$OPENAI_API_KEY,GCS_BUCKET_NAME=$$GCS_BUCKET_NAME,DRIVE_FOLDER_ID=$$DRIVE_FOLDER_ID,OAUTH_CREDENTIALS_FILE=oauth-credentials.json,OAUTH_TOKEN_FILE=oauth-token.json \
           --memory=512Mi \
-          --timeout=120s
+          --timeout=300s
     secretEnv:
       - OPENAI_API_KEY
       - GCS_BUCKET_NAME

@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 @functions_framework.http
 def run(request):
-    logger.info("========== Smart Receipt Organizer iniciado ==========")
+    logger.info("========== ComprovAI iniciado ==========")
 
     folder_id = os.getenv("DRIVE_FOLDER_ID")
     if not folder_id:
